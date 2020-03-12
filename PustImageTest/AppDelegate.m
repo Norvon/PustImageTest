@@ -7,8 +7,9 @@
 //
 
 #import "AppDelegate.h"
+#import <UserNotifications/UserNotifications.h>
 
-@interface AppDelegate ()
+@interface AppDelegate ()<UNUserNotificationCenterDelegate>
 
 @end
 
@@ -17,24 +18,89 @@
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
     // Override point for customization after application launch.
+    
+    if (@available(iOS 10.0, *)) {
+        UNUserNotificationCenter *center = [UNUserNotificationCenter currentNotificationCenter];
+        center.delegate = self;
+    }
+    
+    [self registerPushService];
+    
     return YES;
 }
 
+- (void)userNotificationCenter:(UNUserNotificationCenter *)center willPresentNotification:(UNNotification *)notification withCompletionHandler:(void (^)(UNNotificationPresentationOptions))completionHandler {
 
-#pragma mark - UISceneSession lifecycle
-
-
-- (UISceneConfiguration *)application:(UIApplication *)application configurationForConnectingSceneSession:(UISceneSession *)connectingSceneSession options:(UISceneConnectionOptions *)options {
-    // Called when a new scene session is being created.
-    // Use this method to select a configuration to create the new scene with.
-    return [[UISceneConfiguration alloc] initWithName:@"Default Configuration" sessionRole:connectingSceneSession.role];
+    completionHandler(UNNotificationPresentationOptionSound
+                      | UNNotificationPresentationOptionAlert);
 }
 
 
-- (void)application:(UIApplication *)application didDiscardSceneSessions:(NSSet<UISceneSession *> *)sceneSessions {
-    // Called when the user discards a scene session.
-    // If any sessions were discarded while the application was not running, this will be called shortly after application:didFinishLaunchingWithOptions.
-    // Use this method to release any resources that were specific to the discarded scenes, as they will not return.
+- (void)application:(UIApplication *)app didRegisterForRemoteNotificationsWithDeviceToken:(NSData *)deviceToken {
+    [self bindPhontWithDeviceToken:deviceToken];
+}
+
+- (void)application:(UIApplication *)application didFailToRegisterForRemoteNotificationsWithError:(NSError *)error {
+    
+}
+
+- (void)registerPushService {
+
+    // 前台推送
+    if (@available(iOS 11.0, *))
+    {
+        UNUserNotificationCenter *center = [UNUserNotificationCenter currentNotificationCenter];
+        [center requestAuthorizationWithOptions:(UNAuthorizationOptionBadge | UNAuthorizationOptionSound | UNAuthorizationOptionAlert) completionHandler:^(BOOL granted, NSError * _Nullable error) {
+            if (!granted)
+            {
+            }
+        }];
+    }
+    else
+    {
+        UIUserNotificationType types = UIUserNotificationTypeBadge | UIUserNotificationTypeSound | UIUserNotificationTypeAlert;
+        UIUserNotificationSettings *settings = [UIUserNotificationSettings settingsForTypes:types
+                                                                                 categories:nil];
+        [[UIApplication sharedApplication] registerUserNotificationSettings:settings];
+    }
+
+    [[UIApplication sharedApplication] registerForRemoteNotifications];
+
+
+//    //pushkit
+//    PKPushRegistry *pushRegistry = [[PKPushRegistry alloc] initWithQueue:dispatch_get_main_queue()];
+//    pushRegistry.delegate = self;
+//    pushRegistry.desiredPushTypes = [NSSet setWithObject:PKPushTypeVoIP];
+
+    // 注册push权限，用于显示本地推送
+    [[UIApplication sharedApplication] registerUserNotificationSettings:[UIUserNotificationSettings settingsForTypes:(UIUserNotificationTypeSound | UIUserNotificationTypeAlert | UIUserNotificationTypeBadge) categories:nil]];
+}
+
+- (void)bindPhontWithDeviceToken:(NSData *)deviceToken {
+    if (!deviceToken) return;
+    
+    // token
+    NSString *deviceTokenStr = [self getHexStringForData:deviceToken];;
+    
+    NSLog(@"devictToek = %@", deviceTokenStr);
+}
+
+- (NSString *)getHexStringForData:(NSData *)data {
+    if (!data) return @"";
+    
+    NSMutableString *deviceTokenString = [NSMutableString string];
+    
+    const char *bytes = data.bytes;
+    NSInteger count = data.length;
+    for (int i = 0; i < count; i++) {
+        [deviceTokenString appendFormat:@"%02x", bytes[i]&0x000000FF];
+    }
+
+#if DEBUG
+//    [self showTokenAlertWithDeviceTokenStr:deviceTokenString];
+#endif
+    
+    return deviceTokenString;
 }
 
 
